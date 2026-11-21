@@ -1,0 +1,58 @@
+name: inf326-tarea2
+x-http: &http
+  build: .
+  command: ["python", "-m", "uvicorn", "shortener:create_app", "--factory", "--host", "0.0.0.0", "--port", "8443", "--ssl-keyfile", "/certs/tls.key", "--ssl-certfile", "/certs/tls.crt", "--no-proxy-headers"]
+
+services:
+  certificados:
+    build: .
+    command: ["sh", "generate-cert.sh", "/certs"]
+    volumes:
+      - tls:/certs
+
+  log:
+    build: .
+    command: ["python", "-m", "log_service"]
+    volumes:
+      - visitas:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; grpc.channel_ready_future(grpc.insecure_channel('localhost:50051')).result(timeout=2)"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+
+  v1:
+    <<: *http
+    ports: ["127.0.0.1:8443:8443"]
+    environment:
+      VERSION: "1"
+      PUBLIC_BASE_URL: "https://localhost:8443"
+      LOG_TARGET: "log:50051"
+    volumes:
+      - tls:/certs:ro
+      - links-v1:/app/data
+    depends_on:
+      certificados:
+        condition: service_completed_successfully
+      log:
+        condition: service_healthy
+
+  v2:
+    <<: *http
+    ports: ["127.0.0.1:8444:8443"]
+    environment:
+      VERSION: "2"
+      PUBLIC_BASE_URL: "https://localhost:8444"
+      RATE_PER_MINUTE: "60"
+    volumes:
+      - tls:/certs:ro
+      - links-v2:/app/data
+    depends_on:
+      certificados:
+        condition: service_completed_successfully
+
+volumes:
+  tls:
+  visitas:
+  links-v1:
+  links-v2:

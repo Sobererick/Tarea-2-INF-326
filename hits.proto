@@ -1,0 +1,13 @@
+syntax = "proto3";
+package usm.analytics;
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service VisitLog {
+  rpc Record(UrlHit) returns (google.protobuf.Empty);
+}
+
+message UrlHit {
+  google.protobuf.Timestamp timestamp = 1;
+  string url = 2;
+}
